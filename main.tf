@@ -19,7 +19,7 @@ data "aws_key_pair" "gh_runner_key_pair" {
 }
 
 resource "aws_security_group" "gh_runners_sg" {
-  name   = "gh_runners_sg"
+  name   = "gh_runners_${var.repo}_sg"
   vpc_id = aws_vpc.vpc.id
   # tags = {
   #   Name = "gh_runners_sg"
@@ -41,12 +41,12 @@ resource "aws_vpc_security_group_egress_rule" "allow_all_traffic_ipv4" {
 }
 
 resource "aws_instance" "gh_runner" {
-  ami                    = data.aws_ami.ubuntu.id
-  instance_type          = "t2.micro"
-  subnet_id              = aws_subnet.sb_pub.id
-  key_name               = data.aws_key_pair.gh_runner_key_pair.key_name
-  vpc_security_group_ids = [aws_security_group.gh_runners_sg.id]
-  # associate_public_ip_address = true
+  ami                         = data.aws_ami.ubuntu.id
+  instance_type               = "t2.micro"
+  subnet_id                   = aws_subnet.sb_pub.id
+  key_name                    = data.aws_key_pair.gh_runner_key_pair.key_name
+  vpc_security_group_ids      = [aws_security_group.gh_runners_sg.id]
+  associate_public_ip_address = true
   user_data = templatefile(
     "${path.module}/user_data.sh",
     {
@@ -57,7 +57,10 @@ resource "aws_instance" "gh_runner" {
   )
   user_data_replace_on_change = true
   tags = {
-    Name = "gh_runner"
+    Name = "gh_runner_${var.repo}_vm"
   }
   depends_on = [aws_internet_gateway.igw]
+  lifecycle {
+    create_before_destroy = true
+  }
 }

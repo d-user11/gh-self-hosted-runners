@@ -5,29 +5,48 @@ on:
     inputs:
       owner:
         description: The account owner of the repository. The name is not case sensitive
+        type: string
         required: true
         default: d-user11
       repo_name:
         description: The name of the repository without the .git extension. The name is not case sensitive.
+        type: string
         required: true
         default: gh-self-hosted-runners
+      destroy:
+        description: Destroy runner?
+        type: boolean
+        default: false
 
 env:
   # credentials for deployment to AWS
   AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
   AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+  # comma-delimited list of approvers for terraform apply
+  APPROVERS: d-user11
 
 jobs:
   provision-runner:
     runs-on: ubuntu-latest
     permissions:
       issues: write
-      
+
     steps:
       - name: Mask input values
+        if: github.event.repository.name != github.event.inputs.repo_name
         run: |
           REPO_NAME=$(jq -r '.inputs.repo_name' $GITHUB_EVENT_PATH) 
           echo "::add-mask::$REPO_NAME"
+
+      - name: Generate a token
+        id: generate-token
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ vars.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          owner: ${{ github.event.inputs.owner }}
+          repositories: ${{ github.event.inputs.repo_name }}
+          skip-token-revoke: true
 
       - name: Checkout Repository
         uses: actions/checkout@v5
@@ -36,6 +55,7 @@ jobs:
         uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: 1.13.4
+          terraform_wrapper: true
 
       - name: Terraform init
         id: init
@@ -60,27 +80,30 @@ jobs:
           terraform plan -input=false -detailed-exitcode -out tf.plan \
             -var owner=${{ github.event.inputs.owner }} \
             -var repo=${{ github.event.inputs.repo_name }} \
-            -var access_token=????????
+            -var access_token=${{ steps.generate-token.outputs.token }}
 
       - name: Terraform plan status
         if: steps.plan.outcome == 'failure'
         run: exit 1
 
-      # - name: Manual approval before apply
-      #   uses: trstringer/manual-approval@v1
-      #   if: steps.plan.outputs.exitcode == 2 # Has changes 
-      #   # if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-      #   timeout-minutes: 10
-      #   with:
-      #     secret: ${{ github.TOKEN }}
-      #     approvers: ${{ env.APPROVERS }}
-      #     minimum-approvals: 1
-      #     exclude-workflow-initiator-as-approver: false
-      #     fail-on-denial: true
-      #     issue-title: Manual Approval Required for Terraform Apply
-      #     issue-body: Please approve or deny the deployment.
+      - name: Manual approval before apply
+        uses: trstringer/manual-approval@v1
+        if: github.ref == 'refs/heads/main' && steps.plan.outputs.exitcode == 2 # (has changes) 
+        timeout-minutes: 10
+        with:
+          secret: ${{ github.TOKEN }}
+          approvers: ${{ env.APPROVERS }}
+          minimum-approvals: 1
+          exclude-workflow-initiator-as-approver: false
+          fail-on-denial: true
+          issue-title: Manual Approval Required for Terraform Apply
+          issue-body: Please approve or deny the deployment.
 
-      # - name: Terraform Apply
-      #   if: steps.plan.outputs.exitcode == 2 # Has changes
-      #   # if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-      #   run: terraform apply -auto-approve -input=false tf.plan
+      - name: Terraform Apply
+        if: github.ref == 'refs/heads/main' && steps.plan.outputs.exitcode == 2 # (has changes)
+        run: |
+          terraform apply -auto-approve -input=false \
+            -var owner=${{ github.event.inputs.owner }} \
+            -var repo=${{ github.event.inputs.repo_name }} \
+            -var access_token=${{ steps.generate-token.outputs.token  }} \
+            tf.plan

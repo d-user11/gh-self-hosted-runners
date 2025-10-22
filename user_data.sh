@@ -6,18 +6,18 @@ sudo apt install -y jq
 
 ### INSTALL DOCKER ###
 
-mkdir docker_install && cd docker_install || return
+cd / && mkdir docker_install && cd docker_install || return
 
 curl -fsSL https://get.docker.com -o get-docker.sh
 
-sudo sh ./get-docker.sh --dry-run
+sudo sh ./get-docker.sh
 
 sudo groupadd docker
 sudo usermod -aG docker ubuntu
 
-### CONFIGURE GITHUG SELF-HOSTED RUNNER ###
+### CONFIGURE GITHUB SELF-HOSTED RUNNER ###
 
-mkdir actions-runner && cd actions-runner || return
+cd / && mkdir actions-runner && cd actions-runner || return
 
 RUNNER_PACKAGE_URL=$(
     curl -s -L \
