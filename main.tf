@@ -41,12 +41,12 @@ resource "aws_vpc_security_group_egress_rule" "allow_all_traffic_ipv4" {
 }
 
 resource "aws_instance" "gh_runner" {
-  ami                         = data.aws_ami.ubuntu.id
-  instance_type               = "t2.micro"
-  subnet_id                   = aws_subnet.sb_pub.id
-  key_name                    = data.aws_key_pair.gh_runner_key_pair.key_name
-  associate_public_ip_address = true
-  vpc_security_group_ids      = [aws_security_group.gh_runners_sg.id]
+  ami                    = data.aws_ami.ubuntu.id
+  instance_type          = "t2.micro"
+  subnet_id              = aws_subnet.sb_pub.id
+  key_name               = data.aws_key_pair.gh_runner_key_pair.key_name
+  vpc_security_group_ids = [aws_security_group.gh_runners_sg.id]
+  # associate_public_ip_address = true
   user_data = templatefile(
     "${path.module}/user_data.sh",
     {

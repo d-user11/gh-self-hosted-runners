@@ -7,7 +7,7 @@ on:
         description: The account owner of the repository. The name is not case sensitive
         required: true
         default: d-user11
-      repo:
+      repo_name:
         description: The name of the repository without the .git extension. The name is not case sensitive.
         required: true
         default: gh-self-hosted-runners
@@ -16,9 +16,6 @@ env:
   # credentials for deployment to AWS
   AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
   AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-  # terraform backend
-  # S3_BUCKET: ${{ secrets.S3_BUCKET }}
-  # ROLE_ARN: ${{ secrets.ROLE_ARN }}
 
 jobs:
   provision-runner:
@@ -27,6 +24,11 @@ jobs:
       issues: write
       
     steps:
+      - name: Mask input values
+        run: |
+          REPO_NAME=$(jq -r '.inputs.repo_name' $GITHUB_EVENT_PATH) 
+          echo "::add-mask::$REPO_NAME"
+
       - name: Checkout Repository
         uses: actions/checkout@v5
 
@@ -41,7 +43,7 @@ jobs:
           terraform init \
             -backend-config "bucket=${{ secrets.S3_BUCKET }}" \
             -backend-config "region=eu-west-1" \
-            -backend-config "key=github_runners/${{ github.event.inputs.owner }}/${{ github.event.inputs.repo }}/terraform.tfstate" \
+            -backend-config "key=github_runners/${{ github.event.inputs.owner }}/${{ github.event.inputs.repo_name }}/terraform.tfstate" \
             -backend-config "assume_role={role_arn=\"${{ secrets.ROLE_ARN }}\"}"
 
       - name: Terraform format
@@ -57,7 +59,7 @@ jobs:
         run: |
           terraform plan -input=false -detailed-exitcode -out tf.plan \
             -var owner=${{ github.event.inputs.owner }} \
-            -var repo=${{ github.event.inputs.repo }} \
+            -var repo=${{ github.event.inputs.repo_name }} \
             -var access_token=????????
 
       - name: Terraform plan status

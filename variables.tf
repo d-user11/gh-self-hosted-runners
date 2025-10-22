@@ -8,6 +8,7 @@ variable "repo" {
   description = "The name of the repository without the .git extension. The name is not case sensitive."
   type        = string
   default     = "gh-self-hosted-runners"
+  sensitive   = true
 }
 
 variable "access_token" {
