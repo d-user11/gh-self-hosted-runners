@@ -12,6 +12,14 @@ on:
         required: true
         default: gh-self-hosted-runners
 
+env:
+  # credentials for deployment to AWS
+  AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+  AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+  # terraform backend
+  # S3_BUCKET: ${{ secrets.S3_BUCKET }}
+  # ROLE_ARN: ${{ secrets.ROLE_ARN }}
+
 jobs:
   provision-runner:
     runs-on: ubuntu-latest
@@ -23,13 +31,18 @@ jobs:
         uses: actions/checkout@v5
 
       - name: Setup Terraform with specified version on the runner
-        uses: hashicorp/setup-terraform@v2
+        uses: hashicorp/setup-terraform@v3
         with:
-          terraform_version: 1.12.2
+          terraform_version: 1.13.4
 
       - name: Terraform init
         id: init
-        run: terraform init
+        run: |
+          terraform init \
+            -backend-config "bucket=${{ secrets.S3_BUCKET }}" \
+            -backend-config "region=eu-west-1" \
+            -backend-config "key=github_runners/${{ github.event.inputs.owner }}/${{ github.event.inputs.repo }}/terraform.tfstate" \
+            -backend-config "assume_role={role_arn=\"${{ secrets.ROLE_ARN }}\"}"
 
       - name: Terraform format
         id: fmt
@@ -42,30 +55,30 @@ jobs:
       - name: Terraform plan
         id: plan
         run: |
-          terraform plan -input=false -no-color -detailed-exitcode -out tf.plan \
+          terraform plan -input=false -detailed-exitcode -out tf.plan \
             -var owner=${{ github.event.inputs.owner }} \
             -var repo=${{ github.event.inputs.repo }} \
-            -var access_token=
+            -var access_token=????????
 
       - name: Terraform plan status
         if: steps.plan.outcome == 'failure'
         run: exit 1
 
-      - name: Manual approval before apply
-        uses: trstringer/manual-approval@v1
-        if: steps.plan.outputs.exitcode == 2 # Has changes 
-        # if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-        timeout-minutes: 10
-        with:
-          secret: ${{ github.TOKEN }}
-          approvers: ${{ env.APPROVERS }}
-          minimum-approvals: 1
-          exclude-workflow-initiator-as-approver: false
-          fail-on-denial: true
-          issue-title: Manual Approval Required for Terraform Apply
-          issue-body: Please approve or deny the deployment.
+      # - name: Manual approval before apply
+      #   uses: trstringer/manual-approval@v1
+      #   if: steps.plan.outputs.exitcode == 2 # Has changes 
+      #   # if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+      #   timeout-minutes: 10
+      #   with:
+      #     secret: ${{ github.TOKEN }}
+      #     approvers: ${{ env.APPROVERS }}
+      #     minimum-approvals: 1
+      #     exclude-workflow-initiator-as-approver: false
+      #     fail-on-denial: true
+      #     issue-title: Manual Approval Required for Terraform Apply
+      #     issue-body: Please approve or deny the deployment.
 
-      - name: Terraform Apply
-        if: steps.plan.outputs.exitcode == 2 # Has changes
-        # if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-        run: terraform apply -auto-approve -input=false tf.plan
+      # - name: Terraform Apply
+      #   if: steps.plan.outputs.exitcode == 2 # Has changes
+      #   # if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+      #   run: terraform apply -auto-approve -input=false tf.plan
