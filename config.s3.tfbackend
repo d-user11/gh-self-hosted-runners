@@ -1,0 +1,6 @@
+bucket      = "terraform-state-94207c19b97e"
+key         = "github_runners/d-user11/gh-self-hosted-runners/terraform.tfstate"
+region      = "eu-west-1"
+assume_role = {
+    role_arn = "arn:aws:iam::761371570462:role/TerraformBackend"
+}
