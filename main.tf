@@ -58,6 +58,7 @@ resource "aws_instance" "gh_runner" {
   user_data_replace_on_change = true
   root_block_device {
     volume_size = 30
+    volume_type = "gp3"
   }
   tags = {
     Name = "gh_runner_${var.repo}_vm"
