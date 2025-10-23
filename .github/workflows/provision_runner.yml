@@ -75,6 +75,7 @@ jobs:
         run: terraform validate
 
       - name: Terraform plan
+        if: github.event.inputs.destroy == 'false'
         id: plan
         run: |
           terraform plan -input=false -detailed-exitcode -out tf.plan \
@@ -88,7 +89,7 @@ jobs:
 
       - name: Manual approval before apply
         uses: trstringer/manual-approval@v1
-        if: github.ref == 'refs/heads/main' && steps.plan.outputs.exitcode == 2 # (has changes) 
+        if: github.ref == 'refs/heads/main' && github.event.inputs.destroy == 'false' && steps.plan.outputs.exitcode == 2 # (has changes)
         timeout-minutes: 10
         with:
           secret: ${{ github.TOKEN }}
@@ -100,14 +101,18 @@ jobs:
           issue-body: Please approve or deny the deployment.
 
       - name: Terraform Apply
-        if: github.ref == 'refs/heads/main' && github.event.inputs.destroy == false && steps.plan.outputs.exitcode == 2 # (has changes)
+        if: github.ref == 'refs/heads/main' && github.event.inputs.destroy == 'false' && steps.plan.outputs.exitcode == 2 # (has changes)
         run: |
           terraform apply -auto-approve -input=false \
             -var owner=${{ github.event.inputs.owner }} \
             -var repo=${{ github.event.inputs.repo_name }} \
             -var access_token=${{ steps.generate-token.outputs.token  }} \
             tf.plan
-      
+
       - name: Terraform Destroy
-        if: github.ref == 'refs/heads/main' && github.event.inputs.destroy == true
-        run: terraform destroy -auto-approve
+        if: github.ref == 'refs/heads/main' && github.event.inputs.destroy == 'true'
+        run: |
+          terraform destroy -auto-approve -input=false \
+            -var owner=${{ github.event.inputs.owner }} \
+            -var repo=${{ github.event.inputs.repo_name }} \
+            -var access_token=${{ steps.generate-token.outputs.token  }}
