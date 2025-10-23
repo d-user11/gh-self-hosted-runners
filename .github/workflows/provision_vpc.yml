@@ -1,0 +1,83 @@
+name: Deploy VPC
+# https://stackoverflow.com/questions/79541731/what-is-the-ternary-operator-equivalent-in-github-actions
+run-name: ${{ github.event.inputs.destroy == 'false' && 'deploy' || 'destroy' }} - ${{ github.sha }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      destroy:
+        description: Destroy VPC?
+        type: boolean
+        default: false
+
+env:
+  # credentials for deployment to AWS
+  AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+  AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+  # comma-delimited list of approvers for terraform apply
+  APPROVERS: d-user11
+
+jobs:
+  deploy-vpc:
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    defaults:
+      run:
+        working-directory: vpc-config
+
+    steps:
+
+      - name: Checkout Repository
+        uses: actions/checkout@v5
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.13.4
+          terraform_wrapper: true
+
+      - name: Terraform init
+        id: init
+        run: |
+          terraform init \
+            -backend-config "bucket=${{ secrets.S3_BUCKET }}" \
+            -backend-config "assume_role={role_arn=\"${{ secrets.ROLE_ARN }}\"}"
+
+      - name: Terraform format
+        id: fmt
+        run: terraform fmt -check
+
+      - name: Terraform validate
+        id: validate
+        run: terraform validate
+
+      - name: Terraform plan
+        if: github.event.inputs.destroy == 'false'
+        id: plan
+        run: terraform plan -input=false -detailed-exitcode -out tf.plan 
+
+      - name: Terraform plan status
+        if: steps.plan.outcome == 'failure'
+        run: exit 1
+
+      - name: Manual approval before apply
+        uses: trstringer/manual-approval@v1
+        if: github.ref == 'refs/heads/main' && github.event.inputs.destroy == 'false' && steps.plan.outputs.exitcode == 2 # (has changes)
+        timeout-minutes: 10
+        with:
+          secret: ${{ github.TOKEN }}
+          approvers: ${{ env.APPROVERS }}
+          minimum-approvals: 1
+          exclude-workflow-initiator-as-approver: false
+          fail-on-denial: true
+          issue-title: Manual Approval Required for Terraform Apply
+          issue-body: Please approve or deny the deployment.
+
+      - name: Terraform Apply
+        if: github.ref == 'refs/heads/main' && github.event.inputs.destroy == 'false' && steps.plan.outputs.exitcode == 2 # (has changes)
+        run: terraform apply -auto-approve -input=false tf.plan
+
+      - name: Terraform Destroy
+        if: github.ref == 'refs/heads/main' && github.event.inputs.destroy == 'true'
+        run: terraform destroy -auto-approve -input=false

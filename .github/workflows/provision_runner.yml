@@ -1,4 +1,4 @@
-name: Provision Github Runners
+name: Deploy self-hosted runner
 
 on:
   workflow_dispatch:
@@ -30,10 +30,14 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       issues: write
+    defaults:
+      run:
+        working-directory: runner-config
 
     steps:
       - name: Mask input values
         if: github.event.repository.name != github.event.inputs.repo_name
+        working-directory: .
         run: |
           REPO_NAME=$(jq -r '.inputs.repo_name' $GITHUB_EVENT_PATH) 
           echo "::add-mask::$REPO_NAME"
@@ -51,7 +55,7 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v5
 
-      - name: Setup Terraform with specified version on the runner
+      - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: 1.13.4
@@ -62,9 +66,8 @@ jobs:
         run: |
           terraform init \
             -backend-config "bucket=${{ secrets.S3_BUCKET }}" \
-            -backend-config "region=eu-west-1" \
-            -backend-config "key=github_runners/${{ github.event.inputs.owner }}/${{ github.event.inputs.repo_name }}/terraform.tfstate" \
-            -backend-config "assume_role={role_arn=\"${{ secrets.ROLE_ARN }}\"}"
+            -backend-config "assume_role={role_arn=\"${{ secrets.ROLE_ARN }}\"}" \
+            -backend-config "key=github_runners/runners_config/${{ github.event.inputs.owner }}/${{ github.event.inputs.repo_name }}/terraform.tfstate"
 
       - name: Terraform format
         id: fmt
