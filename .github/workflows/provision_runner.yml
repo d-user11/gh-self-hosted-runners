@@ -100,10 +100,14 @@ jobs:
           issue-body: Please approve or deny the deployment.
 
       - name: Terraform Apply
-        if: github.ref == 'refs/heads/main' && steps.plan.outputs.exitcode == 2 # (has changes)
+        if: github.ref == 'refs/heads/main' && github.event.inputs.destroy == false && steps.plan.outputs.exitcode == 2 # (has changes)
         run: |
           terraform apply -auto-approve -input=false \
             -var owner=${{ github.event.inputs.owner }} \
             -var repo=${{ github.event.inputs.repo_name }} \
             -var access_token=${{ steps.generate-token.outputs.token  }} \
             tf.plan
+      
+      - name: Terraform Destroy
+        if: github.ref == 'refs/heads/main' && github.event.inputs.destroy == true
+        run: terraform destroy -auto-approve
