@@ -1,4 +1,4 @@
-name: Deploy VPC
+name: Deploy shared configuration
 # https://stackoverflow.com/questions/79541731/what-is-the-ternary-operator-equivalent-in-github-actions
 run-name: ${{ github.event.inputs.destroy == 'false' && 'deploy' || 'destroy' }} - ${{ github.sha }}
 
@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       destroy:
-        description: Destroy VPC?
+        description: Destroy infra?
         type: boolean
         default: false
 
@@ -24,7 +24,7 @@ jobs:
       issues: write
     defaults:
       run:
-        working-directory: vpc-config
+        working-directory: shared-config
 
     steps:
 
