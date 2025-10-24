@@ -1,4 +1,4 @@
-name: Deploy shared configuration
+name: Deploy shared infra
 # https://stackoverflow.com/questions/79541731/what-is-the-ternary-operator-equivalent-in-github-actions
 run-name: ${{ github.event.inputs.destroy == 'false' && 'deploy' || 'destroy' }} - ${{ github.sha }}
 
@@ -18,7 +18,7 @@ env:
   APPROVERS: d-user11
 
 jobs:
-  deploy-vpc:
+  deploy-shared:
     runs-on: ubuntu-latest
     permissions:
       issues: write

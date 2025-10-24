@@ -62,3 +62,13 @@ RUNNER_ALLOW_RUNASROOT="1" ./config.sh \
 
 sudo ./svc.sh install
 sudo ./svc.sh start
+
+### SET UP CLOUDWATCH AGENT
+
+cd /tmp || return
+curl "https://amazoncloudwatch-agent.s3.amazonaws.com/ubuntu/amd64/latest/amazon-cloudwatch-agent.deb" \
+    -o "amazon-cloudwatch-agent.deb"
+
+sudo dpkg -i -E ./amazon-cloudwatch-agent.deb
+
+sudo /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -s -c ssm:/cloudwatch-agent/config

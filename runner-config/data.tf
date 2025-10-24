@@ -28,3 +28,7 @@ data "aws_subnet" "subnet" {
 data "aws_security_group" "security_group" {
   name = "github_runners_sg"
 }
+
+data "aws_iam_instance_profile" "cloudwatch_agent_profile" {
+  name = "CloudWatchAgentProfile"
+}
