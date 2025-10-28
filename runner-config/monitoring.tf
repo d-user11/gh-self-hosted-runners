@@ -6,8 +6,9 @@ resource "aws_cloudwatch_dashboard" "main" {
   dashboard_body = templatefile(
     "dashboard.json.tpl",
     {
-      private_ip = replace(aws_instance.github_runner.private_ip, ".", "-")
-      region     = aws_instance.github_runner.region
+      region      = aws_instance.github_runner.region
+      instance_id = aws_instance.github_runner.id
+      private_ip  = replace(aws_instance.github_runner.private_ip, ".", "-")
     }
   )
 }
